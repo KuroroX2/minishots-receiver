@@ -237,48 +237,46 @@
     <script>
       const main = document.getElementById('main-container');
       const context = cast.framework.CastReceiverContext.getInstance();
-      const playerManager = context.getPlayerManager();
-      let ws = null;
-      let wsIp = null;
 
-      // ── WebSocket (conexión directa WiFi, funciona en Samsung y cualquier TV) ──
-      function connectWebSocket(ip) {
-        wsIp = ip;
-        if (ws) { try { ws.close(); } catch(e) {} }
-        ws = new WebSocket('ws://' + ip + ':8080/ws');
-        ws.onmessage = function(event) {
-          try { renderState(JSON.parse(event.data)); } catch(e) {}
-        };
-        ws.onclose = function() {
-          if (wsIp) setTimeout(function() { connectWebSocket(wsIp); }, 2000);
-        };
+      // ── DEBUG OVERLAY (ver en la TV qué está pasando) ──
+      const debugDiv = document.createElement('div');
+      debugDiv.style.cssText = 'position:fixed;bottom:5px;left:5px;font-size:13px;color:#aaa;font-family:monospace;background:rgba(0,0,0,0.6);padding:8px;max-width:600px;border-radius:6px;line-height:1.4;z-index:9999;';
+      document.body.appendChild(debugDiv);
+      function debug(msg) {
+        const t = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.textContent = '[' + t + '] ' + msg;
+        debugDiv.appendChild(line);
+        while (debugDiv.children.length > 10) debugDiv.removeChild(debugDiv.firstChild);
       }
+      debug('Receiver cargado');
 
-      // ── Método 1: Canal Cast personalizado (Chromecast nativo) ──
+      // ── Canal Cast personalizado ──
       context.addCustomMessageListener('urn:x-cast:com.x2.ebrios.castchannel', function(event) {
+        debug('Mensaje recibido (' + (event.data ? event.data.length || JSON.stringify(event.data).length : 0) + ' chars)');
         try {
           const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-          if (data.type === 'connect' && data.ip) {
-            connectWebSocket(data.ip);
-          } else {
-            renderState(data);
-          }
-        } catch (e) {}
+          renderState(data);
+          debug('renderState OK, pantalla=' + data.pantalla);
+        } catch (e) {
+          debug('Error parse: ' + e.message);
+        }
       });
 
-      // ── Método 2: Interceptar MediaLoad (Samsung TV y otros) ──
-      playerManager.setMessageInterceptor(
-        cast.framework.messages.MessageType.LOAD,
-        function(loadRequest) {
-          try {
-            const cd = loadRequest.customData || (loadRequest.media && loadRequest.media.customData);
-            if (cd && cd.ip) { connectWebSocket(cd.ip); }
-          } catch(e) {}
-          return null; // Cancelar la carga de media (no reproducir nada)
-        }
-      );
+      // ── Eventos del Cast Framework ──
+      context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, function(event) {
+        debug('SENDER conectado: ' + event.senderId);
+      });
+      context.addEventListener(cast.framework.system.EventType.READY, function() {
+        debug('Context READY');
+      });
+      context.addEventListener(cast.framework.system.EventType.ERROR, function(event) {
+        debug('ERROR: ' + (event.error ? event.error.toString() : 'unknown'));
+      });
 
+      debug('Llamando context.start()');
       context.start();
+      debug('context.start() retornó');
 
       function esc(str) {
         if (!str) return '';
