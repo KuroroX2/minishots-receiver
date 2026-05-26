@@ -262,13 +262,25 @@
           renderIdle(null);
           return;
         }
-        
+
+        // Si hay live state, tiene prioridad sobre la pantalla normal
+        const live = state.live;
+        if (live && live.type) {
+          switch (live.type) {
+            case 'onboarding': renderOnboarding(live); return;
+            case 'registro':   renderRegistro(live); return;
+            case 'sorteo':     renderSorteoLive(live); return;
+          }
+        }
+
         switch (state.pantalla) {
           case 'Inicio':
           case 'Menu':
+          case 'Ajustes':
+            renderIdle(state.players);
+            break;
           case 'Onboarding':
           case 'Registro':
-          case 'Ajustes':
             renderIdle(state.players);
             break;
           case 'Sorteo':
@@ -293,7 +305,7 @@
         if (players && players.length > 0) {
           lobbyHtml = '<div class="lobby-players">Jugadores listos: ' + players.map(esc).join(' · ') + '</div>';
         }
-        main.innerHTML = 
+        main.innerHTML =
           '<div class="tv-idle">' +
             '<div class="logo">MiniShots</div>' +
             '<div class="status">Preparen sus vasos... 🥃</div>' +
@@ -301,8 +313,156 @@
           '</div>';
       }
 
+      // ── ONBOARDING ──────────────────────────────────────────────────────
+      const ONBOARDING_MSGS = [
+        {
+          titulo: '¿Cómo es el grupo?',
+          frase: 'Esto va a definir qué tan picante se pone la noche... 🌶️',
+          icono: '👥'
+        },
+        {
+          titulo: '¿Hay parejas?',
+          frase: 'Importante saber para evitar mirar mal a alguien después... 👀',
+          icono: '💕'
+        },
+        {
+          titulo: '¿Qué tan fuerte?',
+          frase: 'De esto depende si terminan cantando o llamando a un Uber... 🥃',
+          icono: '🔥'
+        }
+      ];
+      function renderOnboarding(live) {
+        const step = live.step || 0;
+        const cfg = ONBOARDING_MSGS[step] || ONBOARDING_MSGS[0];
+        const sel = [];
+        if (live.tipoGrupo) sel.push('Grupo: <b>' + esc(live.tipoGrupo) + '</b>');
+        if (live.parejas !== null && live.parejas !== undefined) sel.push('Parejas: <b>' + esc(live.parejas) + '</b>');
+        if (live.nivel) sel.push('Castigo: <b>' + esc(live.nivel) + '</b>');
+        const selHtml = sel.length ? '<div class="lobby-players" style="margin-top:30px;font-size:1.4rem;">' + sel.join(' · ') + '</div>' : '';
+        main.innerHTML =
+          '<div class="tv-idle">' +
+            '<div style="font-size:6rem;margin-bottom:10px;">' + cfg.icono + '</div>' +
+            '<div class="logo" style="font-size:5rem;">' + cfg.titulo + '</div>' +
+            '<div class="status" style="max-width:900px;text-align:center;line-height:1.4;">' + cfg.frase + '</div>' +
+            '<div style="margin-top:20px;color:var(--muted);font-size:1.3rem;font-weight:600;">Paso ' + (step + 1) + ' de 3</div>' +
+            selHtml +
+          '</div>';
+      }
+
+      // ── REGISTRO ────────────────────────────────────────────────────────
+      const REGISTRO_FRASES = [
+        '¿Quién más se anima? 👀',
+        'Mientras más, mejor 🍻',
+        'Esto va a ser épico 🔥',
+        'Anoten nomás, valientes 💪',
+        'Que no quede nadie afuera 🎉',
+        'Sumen a esa persona problemática 😈',
+        'Confiesen quién es el más chupete 🥴'
+      ];
+      function renderRegistro(live) {
+        const jugadores = live.jugadores || [];
+        const escribiendo = (live.escribiendo || '').trim();
+        const fraseIdx = jugadores.length % REGISTRO_FRASES.length;
+        const frase = REGISTRO_FRASES[fraseIdx];
+
+        let jugadoresHtml = '';
+        if (jugadores.length > 0) {
+          const lista = jugadores.map(function(n) {
+            return '<span style="display:inline-block;background:rgba(124,77,255,0.15);border:1.5px solid var(--purple);color:#fff;padding:10px 22px;border-radius:30px;margin:6px;font-size:1.6rem;font-weight:700;">' + esc(n) + '</span>';
+          }).join('');
+          jugadoresHtml = '<div style="max-width:1100px;text-align:center;margin-top:20px;">' + lista + '</div>';
+        }
+
+        let escribiendoHtml = '';
+        if (escribiendo) {
+          escribiendoHtml = '<div style="margin-top:25px;font-size:1.8rem;color:var(--cyan);font-weight:700;border:2px dashed var(--cyan);padding:12px 28px;border-radius:20px;background:rgba(0,229,255,0.08);">+ ' + esc(escribiendo) + ' <span style="opacity:0.5;animation:blink 1s infinite;">|</span></div>';
+        }
+
+        const titulo = jugadores.length === 0 ? '¿Quiénes juegan?' : jugadores.length + ' jugador' + (jugadores.length === 1 ? '' : 'es') + ' lista' + (jugadores.length === 1 ? '' : 's');
+
+        main.innerHTML =
+          '<style>@keyframes blink{50%{opacity:0;}}</style>' +
+          '<div class="tv-idle">' +
+            '<div class="logo" style="font-size:5rem;">' + titulo + '</div>' +
+            '<div class="status">' + frase + '</div>' +
+            jugadoresHtml +
+            escribiendoHtml +
+          '</div>';
+      }
+
+      // ── SORTEO (live) ────────────────────────────────────────────────────
+      function renderSorteoLive(live) {
+        const fase = live.fase;
+
+        if (fase === 'spinning_format') {
+          main.innerHTML =
+            '<div class="tv-sorteo">' +
+              '<div class="title">¿QUIÉN JUEGA?</div>' +
+              '<div class="drum">🎲 SORTEANDO FORMATO 🎲</div>' +
+              '<div style="font-size:1.5rem;color:var(--muted);margin-top:20px;">1 vs 1... 2 vs 2... 3 vs 3... ¿Todos?</div>' +
+            '</div>';
+          return;
+        }
+        if (fase === 'format_revealed') {
+          main.innerHTML =
+            '<div class="tv-sorteo">' +
+              '<div class="title" style="color:var(--purple);">FORMATO</div>' +
+              '<div class="drum" style="animation:none;border:3px solid var(--purple);background:rgba(124,77,255,0.15);color:#fff;font-size:5rem;">' + esc(live.formato) + '</div>' +
+              '<div style="font-size:1.5rem;color:var(--muted);margin-top:20px;">Ahora veamos quién se sacrifica... 🩸</div>' +
+            '</div>';
+          return;
+        }
+        if (fase === 'spinning_players') {
+          main.innerHTML =
+            '<div class="tv-sorteo">' +
+              '<div class="title">' + esc(live.formato || '') + '</div>' +
+              '<div class="drum">🎰 ELIGIENDO JUGADORES 🎰</div>' +
+              '<div style="font-size:1.5rem;color:var(--muted);margin-top:20px;">Recen... 🙏</div>' +
+            '</div>';
+          return;
+        }
+        if (fase === 'players_revealed') {
+          const eq1 = (live.equipo1 || []).map(esc);
+          const eq2 = (live.equipo2 || []).map(esc);
+          let matchup = '';
+          if (eq1.length === 0 && eq2.length === 0) {
+            matchup = '<div class="tv-matchup"><span class="team-blue">TODOS CONTRA TODOS</span></div>';
+          } else {
+            matchup = '<div class="tv-matchup"><span class="team-blue">' + eq1.join(' + ') + '</span> <span class="vs-label">vs</span> <span class="team-red">' + eq2.join(' + ') + '</span></div>';
+          }
+          main.innerHTML =
+            '<div class="tv-card" style="text-align:center;animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1);">' +
+              '<div class="tv-header" style="justify-content:center;"><span class="tv-badge b-todos">' + esc(live.formato || '') + '</span></div>' +
+              matchup +
+              '<div style="font-size:1.6rem;color:var(--muted);margin-top:10px;">Ahora veamos a qué se enfrentan... 😏</div>' +
+            '</div>';
+          return;
+        }
+        if (fase === 'spinning_game') {
+          main.innerHTML =
+            '<div class="tv-sorteo">' +
+              '<div class="title">EL JUEGO ES...</div>' +
+              '<div class="drum">🎮 ELIGIENDO 🎮</div>' +
+              '<div style="font-size:1.5rem;color:var(--muted);margin-top:20px;">Esto va a doler... o no 🤷</div>' +
+            '</div>';
+          return;
+        }
+        if (fase === 'game_revealed') {
+          main.innerHTML =
+            '<div class="tv-card" style="text-align:center;animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1);">' +
+              '<div class="title" style="color:var(--pink);font-size:1.8rem;margin-bottom:20px;">PRÓXIMO MINIJUEGO</div>' +
+              '<h1 class="tv-game-title" style="font-size:5rem;">' + esc(live.juego) + '</h1>' +
+              '<div style="font-size:1.6rem;color:var(--muted);margin-top:15px;">Preparen los vasos... 🥃</div>' +
+            '</div>';
+          return;
+        }
+
+        // Fallback al sorteo genérico
+        renderSorteo();
+      }
+
       function renderSorteo() {
-        main.innerHTML = 
+        main.innerHTML =
           '<div class="tv-sorteo">' +
             '<div class="title">SORTEANDO PRÓXIMA RONDA</div>' +
             '<div class="drum">⚡ SORTEANDO ⚡</div>' +
