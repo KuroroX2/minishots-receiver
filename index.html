@@ -237,17 +237,46 @@
     <script>
       const main = document.getElementById('main-container');
       const context = cast.framework.CastReceiverContext.getInstance();
+      const playerManager = context.getPlayerManager();
+      let ws = null;
+      let wsIp = null;
 
-      // Escuchar en el canal de mensajes personalizado
+      // ── WebSocket (conexión directa WiFi, funciona en Samsung y cualquier TV) ──
+      function connectWebSocket(ip) {
+        wsIp = ip;
+        if (ws) { try { ws.close(); } catch(e) {} }
+        ws = new WebSocket('ws://' + ip + ':8080/ws');
+        ws.onmessage = function(event) {
+          try { renderState(JSON.parse(event.data)); } catch(e) {}
+        };
+        ws.onclose = function() {
+          if (wsIp) setTimeout(function() { connectWebSocket(wsIp); }, 2000);
+        };
+      }
+
+      // ── Método 1: Canal Cast personalizado (Chromecast nativo) ──
       context.addCustomMessageListener('urn:x-cast:com.x2.ebrios.castchannel', function(event) {
         try {
-          const state = event.data;
-          const stateObj = typeof state === 'string' ? JSON.parse(state) : state;
-          renderState(stateObj);
-        } catch (e) {
-          console.error("Error al procesar mensaje del celular", e);
-        }
+          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (data.type === 'connect' && data.ip) {
+            connectWebSocket(data.ip);
+          } else {
+            renderState(data);
+          }
+        } catch (e) {}
       });
+
+      // ── Método 2: Interceptar MediaLoad (Samsung TV y otros) ──
+      playerManager.setMessageInterceptor(
+        cast.framework.messages.MessageType.LOAD,
+        function(loadRequest) {
+          try {
+            const cd = loadRequest.customData || (loadRequest.media && loadRequest.media.customData);
+            if (cd && cd.ip) { connectWebSocket(cd.ip); }
+          } catch(e) {}
+          return null; // Cancelar la carga de media (no reproducir nada)
+        }
+      );
 
       context.start();
 
