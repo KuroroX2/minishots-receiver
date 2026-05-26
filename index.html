@@ -5,7 +5,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>MiniShots TV Receiver v3</title>
+    <title>MiniShots TV Receiver v4</title>
     <!-- Google Cast Web Receiver SDK (CAF) -->
     <script src="//www.gstatic.com/cast/sdk/libs/caf/sdk/cast_receiver_framework.js"></script>
     <style>
@@ -232,54 +232,71 @@
 
     <div class="container" id="main-container">
       <div class="tv-idle">
-        <div class="logo">MiniShots v3</div>
-        <div class="status">Cargando receiver... 🔌</div>
+        <div class="logo">MiniShots v4</div>
+        <div class="status">Cargando... 🔌</div>
       </div>
     </div>
 
     <script>
-      const main = document.getElementById('main-container');
-      const context = cast.framework.CastReceiverContext.getInstance();
-
-      // ── DEBUG OVERLAY (ver en la TV qué está pasando) ──
+      // ── DEBUG OVERLAY (creado PRIMERO, antes de tocar cast.framework) ──
       const debugDiv = document.createElement('div');
-      debugDiv.style.cssText = 'position:fixed;bottom:5px;left:5px;font-size:13px;color:#aaa;font-family:monospace;background:rgba(0,0,0,0.6);padding:8px;max-width:600px;border-radius:6px;line-height:1.4;z-index:9999;';
+      debugDiv.style.cssText = 'position:fixed;bottom:5px;left:5px;right:5px;font-size:18px;color:#fff;font-family:monospace;background:rgba(0,0,0,0.85);padding:12px;border-radius:8px;line-height:1.5;z-index:99999;border:2px solid #00FF00;';
+      debugDiv.innerHTML = '<div style="color:#00FF00;font-weight:bold;margin-bottom:5px;">DEBUG OVERLAY ACTIVO</div>';
       document.body.appendChild(debugDiv);
+
       function debug(msg) {
         const t = new Date().toLocaleTimeString();
         const line = document.createElement('div');
         line.textContent = '[' + t + '] ' + msg;
         debugDiv.appendChild(line);
-        while (debugDiv.children.length > 10) debugDiv.removeChild(debugDiv.firstChild);
+        while (debugDiv.children.length > 12) debugDiv.removeChild(debugDiv.children[1]);
       }
-      debug('Receiver cargado');
 
-      // ── Canal Cast personalizado ──
-      context.addCustomMessageListener('urn:x-cast:com.x2.ebrios.castchannel', function(event) {
-        debug('Mensaje recibido (' + (event.data ? event.data.length || JSON.stringify(event.data).length : 0) + ' chars)');
+      // Capturar errores globales
+      window.onerror = function(msg, src, line, col, err) {
+        debug('JS ERROR L' + line + ': ' + msg);
+        return false;
+      };
+
+      debug('Script iniciado');
+      debug('cast disponible: ' + (typeof cast !== 'undefined'));
+      debug('cast.framework: ' + (typeof cast !== 'undefined' && typeof cast.framework !== 'undefined'));
+
+      const main = document.getElementById('main-container');
+
+      if (typeof cast === 'undefined' || typeof cast.framework === 'undefined') {
+        debug('FATAL: cast.framework no cargó');
+      } else {
         try {
-          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-          renderState(data);
-          debug('renderState OK, pantalla=' + data.pantalla);
+          const context = cast.framework.CastReceiverContext.getInstance();
+          debug('Context obtenido');
+
+          context.addCustomMessageListener('urn:x-cast:com.x2.ebrios.castchannel', function(event) {
+            debug('MENSAJE recibido!');
+            try {
+              const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+              renderState(data);
+              debug('renderState OK, pantalla=' + data.pantalla);
+            } catch (e) {
+              debug('Error parse: ' + e.message);
+            }
+          });
+          debug('Listener registrado');
+
+          context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, function(event) {
+            debug('SENDER conectado: ' + event.senderId);
+          });
+          context.addEventListener(cast.framework.system.EventType.READY, function() {
+            debug('Context READY');
+          });
+
+          debug('Llamando context.start()');
+          context.start();
+          debug('context.start() retornó');
         } catch (e) {
-          debug('Error parse: ' + e.message);
+          debug('FATAL: ' + e.message);
         }
-      });
-
-      // ── Eventos del Cast Framework ──
-      context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, function(event) {
-        debug('SENDER conectado: ' + event.senderId);
-      });
-      context.addEventListener(cast.framework.system.EventType.READY, function() {
-        debug('Context READY');
-      });
-      context.addEventListener(cast.framework.system.EventType.ERROR, function(event) {
-        debug('ERROR: ' + (event.error ? event.error.toString() : 'unknown'));
-      });
-
-      debug('Llamando context.start()');
-      context.start();
-      debug('context.start() retornó');
+      }
 
       function esc(str) {
         if (!str) return '';
