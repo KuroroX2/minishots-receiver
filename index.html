@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>MiniShots TV Receiver</title>
+    <!-- Google Cast Web Receiver SDK (CAF) -->
+    <script src="//www.gstatic.com/cast/sdk/libs/caf/sdk/cast_receiver_framework.js"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+      :root {
+        --bg: #0D0D1A;
+        --surface: #1E0F3C;
+        --card: #2D1A5E;
+        --border: rgba(255,255,255,0.08);
+        --purple: #7C4DFF;
+        --pink: #E91E63;
+        --cyan: #00E5FF;
+        --orange: #FF8C00;
+        --yellow: #FFD700;
+        --red: #E53935;
+        --green: #43A047;
+        --text: #F0EEF8;
+        --muted: rgba(255,255,255,0.4);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Outfit', sans-serif;
+        background: radial-gradient(circle at 50% 50%, #200a40 0%, #0a0618 100%);
+        color: var(--text);
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .container {
+        width: 90%;
+        max-width: 1100px;
+        height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .tv-card {
+        background: rgba(45, 26, 94, 0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 30px;
+        padding: 50px;
+        width: 100%;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        position: relative;
+        overflow: hidden;
+        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(40px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .tv-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(124, 77, 255, 0.05) 0%, transparent 60%);
+        pointer-events: none;
+      }
+      
+      .tv-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+      .tv-badge {
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .b-1v1 { background: rgba(124, 77, 255, 0.2); color: #BF95FF; border: 1.5px solid #BF95FF; }
+      .b-2v2 { background: rgba(0, 229, 255, 0.2); color: var(--cyan); border: 1.5px solid var(--cyan); }
+      .b-3v3 { background: rgba(255, 140, 0, 0.2); color: var(--orange); border: 1.5px solid var(--orange); }
+      .b-todos { background: rgba(229, 57, 53, 0.2); color: var(--red); border: 1.5px solid var(--red); }
+      .b-1vstodos { background: rgba(233, 30, 99, 0.2); color: var(--pink); border: 1.5px solid var(--pink); }
+
+      .tv-nivel {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--yellow);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tv-matchup {
+        text-align: center;
+        font-size: 3.5rem;
+        font-weight: 800;
+        margin: 10px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 25px;
+      }
+      .team-blue { color: #BF95FF; text-shadow: 0 0 20px rgba(191, 149, 255, 0.3); }
+      .team-red { color: #FF7070; text-shadow: 0 0 20px rgba(255, 112, 112, 0.3); }
+      .vs-label { font-size: 1.8rem; color: var(--muted); font-weight: 400; text-transform: lowercase; }
+
+      .tv-game-title {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #FFF;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(90deg, #FFF, #C3B1FF);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+      }
+
+      .tv-instructions {
+        font-size: 1.7rem;
+        line-height: 1.5;
+        color: rgba(255,255,255,0.85);
+        text-align: center;
+        background: rgba(0,0,0,0.2);
+        padding: 30px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.03);
+      }
+
+      .tv-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .tv-judge {
+        background: rgba(255, 215, 0, 0.08);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        padding: 20px 40px;
+        border-radius: 20px;
+        color: var(--yellow);
+        font-size: 1.4rem;
+        font-weight: 600;
+        text-align: center;
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.05);
+      }
+
+      .tv-idle {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+      }
+      .tv-idle .logo {
+        font-size: 6.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--purple), var(--pink));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 50px rgba(124, 77, 255, 0.5);
+        letter-spacing: 3px;
+      }
+      .tv-idle .status {
+        font-size: 2.2rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.7);
+      }
+      .tv-idle .lobby-players {
+        font-size: 1.3rem;
+        color: var(--muted);
+        background: rgba(255,255,255,0.03);
+        padding: 15px 30px;
+        border-radius: 50px;
+        border: 1px solid rgba(255,255,255,0.05);
+        margin-top: 20px;
+      }
+
+      .tv-sorteo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        text-align: center;
+      }
+      .tv-sorteo .title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--yellow);
+        letter-spacing: 2px;
+      }
+      .tv-sorteo .drum {
+        font-size: 3.8rem;
+        font-weight: 800;
+        color: #FFF;
+        padding: 30px 60px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 20px;
+        border: 2px dashed rgba(255,255,255,0.1);
+        min-width: 400px;
+        animation: shake 0.15s infinite;
+      }
+      @keyframes shake {
+        0% { transform: translate(1px, 1px) rotate(0deg); }
+        10% { transform: translate(-1px, -2px) rotate(-1deg); }
+        20% { transform: translate(-3px, 0px) rotate(1deg); }
+        30% { transform: translate(0px, 2px) rotate(0deg); }
+        100% { transform: translate(1px, -2px) rotate(-1deg); }
+      }
+    </style>
+</head>
+<body>
+    <!-- Elemento requerido para receptores CAF -->
+    <cast-media-player style="display: none;"></cast-media-player>
+
+    <div class="container" id="main-container">
+      <div class="tv-idle">
+        <div class="logo">MiniShots</div>
+        <div class="status">Esperando conexión de juego... 🔌</div>
+      </div>
+    </div>
+
+    <script>
+      const main = document.getElementById('main-container');
+      const context = cast.framework.CastReceiverContext.getInstance();
+
+      // Escuchar en el canal de mensajes personalizado
+      context.addCustomMessageListener('urn:x-cast:com.x2.ebrios.castchannel', function(event) {
+        try {
+          const state = event.data;
+          const stateObj = typeof state === 'string' ? JSON.parse(state) : state;
+          renderState(stateObj);
+        } catch (e) {
+          console.error("Error al procesar mensaje del celular", e);
+        }
+      });
+
+      context.start();
+
+      function esc(str) {
+        if (!str) return '';
+        return str.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function renderState(state) {
+        if (!state || !state.pantalla) {
+          renderIdle(null);
+          return;
+        }
+        
+        switch (state.pantalla) {
+          case 'Inicio':
+          case 'Menu':
+          case 'Onboarding':
+          case 'Registro':
+          case 'Ajustes':
+            renderIdle(state.players);
+            break;
+          case 'Sorteo':
+            renderSorteo();
+            break;
+          case 'Juego':
+            renderRonda(state.ronda);
+            break;
+          case 'JuezBriefing':
+            renderJuezBriefing(state.ronda);
+            break;
+          case 'Activo':
+            renderActivo(state.ronda);
+            break;
+          default:
+            renderIdle(state.players);
+        }
+      }
+
+      function renderIdle(players) {
+        let lobbyHtml = '';
+        if (players && players.length > 0) {
+          lobbyHtml = '<div class="lobby-players">Jugadores listos: ' + players.map(esc).join(' · ') + '</div>';
+        }
+        main.innerHTML = 
+          '<div class="tv-idle">' +
+            '<div class="logo">MiniShots</div>' +
+            '<div class="status">Preparen sus vasos... 🥃</div>' +
+            lobbyHtml +
+          '</div>';
+      }
+
+      function renderSorteo() {
+        main.innerHTML = 
+          '<div class="tv-sorteo">' +
+            '<div class="title">SORTEANDO PRÓXIMA RONDA</div>' +
+            '<div class="drum">⚡ SORTEANDO ⚡</div>' +
+          '</div>';
+      }
+
+      function renderJuezBriefing(ronda) {
+        const juez = ronda.juez || 'El grupo';
+        main.innerHTML = 
+          '<div class="tv-card">' +
+            '<div class="tv-header">' +
+              '<span class="tv-badge b-todos">⚖️ DESIGNACIÓN DE JUEZ</span>' +
+            '</div>' +
+            '<h1 class="tv-game-title" style="font-size: 3.5rem; color: var(--yellow);">JUEZ: ' + esc(juez) + '</h1>' +
+            '<div class="tv-instructions" style="font-size: 2rem;">' +
+              'Pasa el celular a <strong>' + esc(juez) + '</strong> para que lea su rol y vigile la ronda.' +
+            '</div>' +
+          '</div>';
+      }
+
+      function renderActivo(ronda) {
+        main.innerHTML = 
+          '<div class="tv-card" style="border-color: var(--pink); box-shadow: 0 20px 50px rgba(233,30,99,0.15);">' +
+            '<div class="tv-header">' +
+              '<span class="tv-badge b-todos" style="background: rgba(233,30,99,0.2); border-color: var(--pink); color: var(--pink)">⚡ RONDA EN CURSO ⚡</span>' +
+            '</div>' +
+            '<h1 class="tv-game-title">' + esc(ronda.minijuego.nombre) + '</h1>' +
+            '<div class="tv-instructions">' +
+              '¡A jugar! Sigan las instrucciones en pantalla.' +
+            '</div>' +
+          '</div>';
+      }
+
+      function renderRonda(ronda) {
+        const minijuego = ronda.minijuego;
+        const formatosMap = {
+          'UNO_VS_UNO': 'b-1v1',
+          'DOS_VS_DOS': 'b-2v2',
+          'TRES_VS_TRES': 'b-3v3',
+          'TODOS': 'b-todos',
+          'UNO_VS_TODOS': 'b-1vstodos'
+        };
+        
+        const formatoClase = formatosMap[ronda.formato] || 'b-todos';
+        const formatoTexto = ronda.formato.replace(/_/g, ' ');
+        
+        // Nivel de castigo
+        let shots = 1;
+        let shotsColor = 'var(--purple)';
+        if (minijuego.nivel === 'shots') {
+          shots = 3;
+          shotsColor = 'var(--red)';
+        } else if (minijuego.nivel === 'suave') {
+          shots = 1;
+          shotsColor = 'var(--green)';
+        }
+        
+        let shotsIcons = '';
+        for (let i = 0; i < 3; i++) {
+          if (i < shots) {
+            shotsIcons += '<span style="color: ' + shotsColor + '; filter: drop-shadow(0 0 5px ' + shotsColor + ')">🥃</span>';
+          } else {
+            shotsIcons += '<span style="opacity: 0.15">🥃</span>';
+          }
+        }
+
+        // Matchup HTML
+        let matchupHtml = '';
+        if (ronda.formato === 'TODOS') {
+          matchupHtml = '<div class="tv-matchup"><span class="team-blue">TODOS CONTRA TODOS</span></div>';
+        } else if (ronda.formato === 'UNO_VS_TODOS') {
+          const p1 = esc(ronda.equipo1[0]);
+          matchupHtml = '<div class="tv-matchup"><span class="team-blue">' + p1 + '</span> <span class="vs-label">vs</span> <span class="team-red">TODOS</span></div>';
+        } else {
+          const eq1 = ronda.equipo1.map(esc).join(' + ');
+          const eq2 = ronda.equipo2.map(esc).join(' + ');
+          matchupHtml = '<div class="tv-matchup"><span class="team-blue">' + eq1 + '</span> <span class="vs-label">vs</span> <span class="team-red">' + eq2 + '</span></div>';
+        }
+
+        // Juez panel
+        let juezPanel = '';
+        if (ronda.juez || minijuego.necesitaJuez) {
+          const juezNombre = ronda.juez ? ronda.juez : 'El grupo';
+          juezPanel = 
+            '<div class="tv-judge">' +
+              '⚖️ JUEZ: ' + esc(juezNombre) + (minijuego.rolJuez ? ' · ' + esc(minijuego.rolJuez) : '') +
+            '</div>';
+        }
+
+        main.innerHTML = 
+          '<div class="tv-card">' +
+            '<div class="tv-header">' +
+              '<span class="tv-badge ' + formatoClase + '">' + formatoTexto + '</span>' +
+              '<div class="tv-nivel">' +
+                shotsIcons +
+                '<span style="margin-left: 8px">' + (minijuego.nivel === 'shots' ? 'Intenso' : minijuego.nivel === 'suave' ? 'Suave' : 'Normal') + '</span>' +
+              '</div>' +
+            '</div>' +
+            
+            matchupHtml +
+            
+            '<h1 class="tv-game-title">' + esc(minijuego.nombre) + '</h1>' +
+            
+            '<div class="tv-instructions">' +
+              esc(minijuego.instrucciones) +
+            '</div>' +
+            
+            '<div class="tv-footer">' +
+              juezPanel +
+            '</div>' +
+          '</div>';
+      }
+    </script>
+</body>
+</html>
