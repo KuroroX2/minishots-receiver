@@ -224,6 +224,35 @@
         30% { transform: translate(0px, 2px) rotate(0deg); }
         100% { transform: translate(1px, -2px) rotate(-1deg); }
       }
+
+      /* ── Animación de "cómo se juega" (guion / cachipún) ── */
+      .bf-wrap { width: 92%; max-width: 1100px; display:flex; flex-direction:column; align-items:center; gap: 26px; animation: fadeIn .5s ease-out; }
+      .bf-title { font-size: 2.6rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+        background: linear-gradient(90deg,#FFF,#C3B1FF); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-align:center; }
+      .bf-stage { display:flex; justify-content:space-evenly; align-items:flex-end; width:100%; gap: 16px; }
+      .bf-col { flex:1; display:flex; flex-direction:column; align-items:center; gap: 16px; min-width:0; }
+      .bf-bubble-slot { min-height: 120px; display:flex; align-items:flex-end; justify-content:center; }
+      .bf-bubble { background:#1A1330; border:1px solid rgba(255,255,255,0.12); border-radius:22px;
+        padding:18px 24px; font-size:1.7rem; font-weight:600; color:#fff; text-align:center; line-height:1.3;
+        box-shadow:0 14px 40px rgba(0,0,0,0.45); position:relative; animation: bfPop .35s cubic-bezier(0.16,1,0.3,1); max-width: 460px; }
+      .bf-bubble::after { content:''; position:absolute; bottom:-12px; left:50%; transform:translateX(-50%);
+        border-left:12px solid transparent; border-right:12px solid transparent; border-top:14px solid #1A1330; }
+      .bf-bubble .dim { color: rgba(255,255,255,0.5); font-weight:400; }
+      .bf-bubble .hot { font-weight:800; }
+      @keyframes bfPop { from{opacity:0; transform:translateY(10px) scale(.9);} to{opacity:1; transform:none;} }
+      .bf-actor { font-size: 4.6rem; transition: transform .3s cubic-bezier(0.16,1,0.3,1), filter .3s; filter: grayscale(.4) opacity(.7); }
+      .bf-actor.on { transform: scale(1.25); filter:none; }
+      .bf-pista { min-height: 52px; display:flex; align-items:center; justify-content:center; }
+      .bf-pista span { background: rgba(13,10,31,0.85); border-radius:16px; padding:12px 26px; font-size:1.5rem; font-weight:800; text-align:center; }
+
+      /* cachipún */
+      .cp-score { font-size:2.6rem; font-weight:800; display:flex; align-items:center; gap:18px; }
+      .cp-score .num { color:#BF95FF; }
+      .cp-hands { display:flex; align-items:center; justify-content:center; gap:50px; }
+      .cp-hand { width:170px; height:170px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+        font-size:5.5rem; position:relative; transition: all .3s cubic-bezier(0.16,1,0.3,1); }
+      .cp-mark { position:absolute; top:-6px; right:-6px; font-size:3rem; }
+      .cp-vs { font-size:1.6rem; color: rgba(255,255,255,0.35); font-weight:700; }
     </style>
 </head>
 <body>
@@ -273,6 +302,11 @@
           }
         }
 
+        // ¿Esta pantalla debe mostrar una animación de demo? Si no, detener cualquiera en curso.
+        const hayDemo = (state.pantalla === 'Juego' || state.pantalla === 'Activo') &&
+          state.ronda && state.ronda.minijuego && state.ronda.minijuego.demo && state.ronda.minijuego.demo.kind;
+        if (!hayDemo) detenerAnim();
+
         switch (state.pantalla) {
           case 'Inicio':
           case 'Menu':
@@ -287,12 +321,14 @@
             renderSorteo();
             break;
           case 'Juego':
+            if (renderDemo(state.ronda)) break;
             renderRonda(state.ronda);
             break;
           case 'JuezBriefing':
             renderJuezBriefing(state.ronda);
             break;
           case 'Activo':
+            if (renderDemo(state.ronda)) break;
             renderActivo(state.ronda);
             break;
           default:
@@ -573,6 +609,172 @@
             '<div class="tv-footer">' +
               juezPanel +
             '</div>' +
+          '</div>';
+      }
+
+      // ════════════════════════════════════════════════════════════════════
+      //  Intérprete de animaciones "cómo se juega" (guion / cachipún)
+      //  Espejo en JS del intérprete de Compose. La data viaja en minijuego.demo.
+      // ════════════════════════════════════════════════════════════════════
+      let animTimer = null;
+      let escenaActual = null;
+
+      function detenerAnim() {
+        if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+        escenaActual = null;
+      }
+
+      function renderDemo(ronda) {
+        const m = ronda && ronda.minijuego;
+        const demo = m && m.demo;
+        if (!demo || !demo.kind) return false;
+        const clave = (m.nombre || '') + '|' + demo.kind;
+        if (clave === escenaActual && animTimer) return true;  // ya está corriendo, no reiniciar
+        if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+        escenaActual = clave;
+        if (demo.kind === 'guion')        { iniciarGuion(demo, m.nombre); return true; }
+        if (demo.kind === 'cachipun')     { iniciarCachipun(demo, m.nombre); return true; }
+        escenaActual = null;
+        return false;
+      }
+
+      // ── GUION ──────────────────────────────────────────────────────────
+      function iniciarGuion(demo, nombre) {
+        let i = 0;
+        function paso() {
+          const p = demo.pasos[i];
+          if (p.items && p.items.length) {
+            let k = 1;
+            (function revelar() {
+              pintarGuion(demo, nombre, i, k);
+              if (k < p.items.length) { k++; animTimer = setTimeout(revelar, 680); }
+              else { animTimer = setTimeout(avanzar, 2400); }
+            })();
+          } else {
+            pintarGuion(demo, nombre, i, 0);
+            const dur = p.dice ? Math.min(Math.max(1500, 1500 + p.dice.length * 45), 4200) : 2400;
+            animTimer = setTimeout(avanzar, dur);
+          }
+        }
+        function avanzar() {
+          if (i === demo.pasos.length - 1) { animTimer = setTimeout(() => { i = 0; paso(); }, 1800); }
+          else { i++; paso(); }
+        }
+        paso();
+      }
+
+      function burbujaHtml(p, mostrados) {
+        if (p.items && p.items.length) {
+          const vis = p.items.slice(0, Math.max(1, mostrados));
+          const txt = vis.map((it, idx) =>
+            idx === vis.length - 1 ? '<span class="hot">' + esc(it) + '</span>' : '<span class="dim">' + esc(it) + '</span>'
+          ).join('&nbsp;&nbsp;');
+          return '<div class="bf-bubble">' + txt + '</div>';
+        }
+        if (p.dice) return '<div class="bf-bubble">“' + esc(p.dice) + '”</div>';
+        return '';
+      }
+
+      function pistaHtml(texto) {
+        if (!texto) return '<div class="bf-pista"></div>';
+        let color = 'rgba(255,255,255,0.92)';
+        if (texto.indexOf('✅') === 0) color = '#7CF2A0';
+        else if (texto.indexOf('❌') === 0) color = '#FF6B6B';
+        return '<div class="bf-pista"><span style="color:' + color + '">' + esc(texto) + '</span></div>';
+      }
+
+      function pintarGuion(demo, nombre, i, mostrados) {
+        const p = demo.pasos[i];
+        const verPista = !(p.items && p.items.length && mostrados < p.items.length);
+        const pista = verPista ? p.pista : null;
+
+        const col = (idx) => {
+          const habla = idx === p.actor;
+          const burbuja = habla ? burbujaHtml(p, mostrados) : '';
+          return '<div class="bf-col">' +
+                   '<div class="bf-bubble-slot">' + burbuja + '</div>' +
+                   '<div class="bf-actor' + (habla ? ' on' : '') + '">' + esc(demo.actores[idx]) + '</div>' +
+                 '</div>';
+        };
+
+        let escena;
+        if (demo.vertical) {
+          // protagonista (actor 0) arriba, resto abajo
+          let abajo = '';
+          for (let k = 1; k < demo.actores.length; k++) abajo += col(k);
+          escena = '<div class="bf-stage" style="margin-bottom:6px">' + col(0) + '</div>' +
+                   '<div class="bf-stage">' + abajo + '</div>';
+        } else {
+          let fila = '';
+          for (let k = 0; k < demo.actores.length; k++) fila += col(k);
+          escena = '<div class="bf-stage">' + fila + '</div>';
+        }
+
+        main.innerHTML =
+          '<div class="bf-wrap">' +
+            '<div class="bf-title">' + esc(nombre) + '</div>' +
+            escena +
+            pistaHtml(pista) +
+          '</div>';
+      }
+
+      // ── CACHIPÚN ───────────────────────────────────────────────────────
+      function iniciarCachipun(demo, nombre) {
+        let r = 0, fase = 0;  // 0 manos, 1 ✓/✗ + marcador, 2 limpio
+        function ciclo() {
+          pintarCachipun(demo, nombre, r, fase);
+          if (fase === 0)      { fase = 1; animTimer = setTimeout(ciclo, 1300); }
+          else if (fase === 1) { fase = 2; animTimer = setTimeout(ciclo, 450); }
+          else {
+            fase = 0;
+            if (r >= demo.rondas.length - 1) { r = 0; animTimer = setTimeout(ciclo, 1600); }
+            else { r++; animTimer = setTimeout(ciclo, 50); }
+          }
+        }
+        // primer frame con un pequeño delay de manos
+        pintarCachipun(demo, nombre, 0, 0);
+        animTimer = setTimeout(ciclo, 850);
+      }
+
+      function pintarCachipun(demo, nombre, r, fase) {
+        const hasta = fase >= 1 ? r + 1 : r;
+        let pIzq = 0, pDer = 0;
+        for (let k = 0; k < hasta; k++) { if (demo.rondas[k].ganador === 0) pIzq++; else if (demo.rondas[k].ganador === 1) pDer++; }
+        const ronda = demo.rondas[r];
+        const verManos = fase <= 1;
+        const verMarca = fase === 1;
+        const fin = (r === demo.rondas.length - 1) && fase >= 1;
+
+        const marca = (lado) => ronda.ganador === -1 ? '🤝' : (ronda.ganador === lado ? '✅' : '❌');
+        const mano = (lado, emoji) => {
+          const m = lado === 0 ? ronda.izq : ronda.der;
+          const bg = verManos ? 'rgba(124,77,255,0.20)' : 'rgba(255,255,255,0.05)';
+          return '<div class="cp-hand" style="background:' + bg + ';transform:scale(' + (verManos ? 1 : 0.8) + ')">' +
+                   (verManos ? m : '') +
+                   (verMarca ? '<div class="cp-mark">' + marca(lado) + '</div>' : '') +
+                 '</div>' +
+                 '<div style="font-size:2.4rem;margin-top:6px">' + esc(emoji) + '</div>';
+        };
+
+        let finTxt = '';
+        if (fin) {
+          const gana = pIzq > pDer ? demo.izq : demo.der;
+          const pierde = pIzq > pDer ? demo.der : demo.izq;
+          finTxt = '<div class="bf-pista"><span style="color:#7CF2A0">✅ ' + esc(gana) + ' gana ' + pIzq + ' – ' + pDer + ' → bebe ' + esc(pierde) + '</span></div>';
+        } else {
+          finTxt = '<div class="bf-pista"></div>';
+        }
+
+        main.innerHTML =
+          '<div class="bf-wrap">' +
+            '<div class="bf-title">' + esc(nombre) + '</div>' +
+            '<div class="cp-score"><span>' + esc(demo.izq) + '</span><span class="num">' + pIzq + ' – ' + pDer + '</span><span>' + esc(demo.der) + '</span></div>' +
+            '<div class="cp-hands">' +
+              '<div style="text-align:center">' + mano(0, demo.izq) + '</div>' +
+              '<div class="cp-vs">VS</div>' +
+              '<div style="text-align:center">' + mano(1, demo.der) + '</div>' +
+            '</div>' +
+            finTxt +
           '</div>';
       }
     </script>
